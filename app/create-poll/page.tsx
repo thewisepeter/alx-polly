@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
+import withAuth from '@/components/auth/withAuth';
 
-export default function CreatePollPage() {
+function CreatePollPage() {
   const [options, setOptions] = useState<string[]>(['', '']);
 
   const addOption = () => {
@@ -99,3 +100,5 @@ export default function CreatePollPage() {
     </div>
   );
 }
+
+export default withAuth(CreatePollPage);

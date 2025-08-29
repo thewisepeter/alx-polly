@@ -1,55 +1,43 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
-
-type User = {
-  id: string;
-  name: string;
-  email: string;
-} | null;
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import supabase from '@/lib/supabase';
+import { Session, User } from '@supabase/supabase-js';
 
 type AuthContextType = {
-  user: User;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
-  signOut: () => void;
+  user: User | null;
+  session: Session | null;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
 
-  // These functions would connect to your actual authentication service
-  const signIn = async (email: string, password: string) => {
-    // This is a placeholder. In a real app, you would call your auth API
-    console.log('Sign in with', email, password);
-    // Simulate successful login
-    setUser({
-      id: '1',
-      name: 'Demo User',
-      email: email,
-    });
-  };
+  useEffect(() => {
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
+    };
 
-  const signUp = async (name: string, email: string, password: string) => {
-    // This is a placeholder. In a real app, you would call your auth API
-    console.log('Sign up with', name, email, password);
-    // Simulate successful registration
-    setUser({
-      id: '1',
-      name: name,
-      email: email,
-    });
-  };
+    getSession();
 
-  const signOut = () => {
-    // This is a placeholder. In a real app, you would call your auth API
-    setUser(null);
-  };
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session }}>
       {children}
     </AuthContext.Provider>
   );
