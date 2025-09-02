@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { useAuth } from "../lib/contexts/AuthContext";
 
 interface SignInProps {
   onSignIn: (user: { email: string; name: string }) => void;
@@ -19,6 +20,7 @@ export function SignIn({ onSignIn, onBack, onSwitchToSignUp }: SignInProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(false);
+  const { signIn } = useAuth();
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -49,16 +51,26 @@ export function SignIn({ onSignIn, onBack, onSwitchToSignUp }: SignInProps) {
     }
 
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    setErrors({});
     
-    // Mock successful sign in
-    onSignIn({
-      email: email.trim(),
-      name: email.split('@')[0] // Simple name extraction from email
-    });
-    
-    setIsLoading(false);
+    try {
+      const { error, data } = await signIn(email.trim(), password);
+      
+      if (error) {
+        setErrors({ form: error.message });
+      } else if (data?.user) {
+        // Successfully signed in, Supabase session is handled by AuthContext
+        // The AppContext will update based on the Supabase user
+        onSignIn({
+          email: data.user.email || '',
+          name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || ''
+        });
+      }
+    } catch (err: any) {
+      setErrors({ form: err.message || 'An error occurred during sign in' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -128,7 +140,14 @@ export function SignIn({ onSignIn, onBack, onSwitchToSignUp }: SignInProps) {
               )}
             </div>
 
-            {/* Submit Button */}
+            {/* Form Error */}
+            {errors.form && (
+              <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+                {errors.form}
+              </div>
+            )}
+
+          {/* Submit Button */}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>

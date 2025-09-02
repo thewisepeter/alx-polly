@@ -3,6 +3,7 @@
 
 import '../styles/globals.css'
 import { AppProvider, useApp } from '../lib/contexts/AppContext'
+import { AuthProvider } from '../lib/contexts/AuthContext'
 import { usePathname, useRouter } from 'next/navigation'
 import React from 'react'
 
@@ -52,9 +53,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <AppProvider>
-          <AppLayoutContent>{children}</AppLayoutContent>
-        </AppProvider>
+        <AuthProvider>
+          <AppProvider>
+            <AppLayoutContent>{children}</AppLayoutContent>
+          </AppProvider>
+        </AuthProvider>
       </body>
     </html>
   )

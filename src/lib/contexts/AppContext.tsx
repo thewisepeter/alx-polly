@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react'
 import { Poll, mockPolls } from '../mockData'
+import { useAuth } from './AuthContext'
+import { User as SupabaseUser } from '@supabase/supabase-js'
 
 interface User {
   email: string
@@ -27,9 +29,22 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { user: supabaseUser } = useAuth()
   const [polls, setPolls] = useState<Poll[]>(mockPolls)
   const [user, setUser] = useState<User | null>(null)
   const [userVotes, setUserVotes] = useState<{ [pollId: string]: string }>({})
+
+  // Update user when Supabase auth changes
+  useEffect(() => {
+    if (supabaseUser) {
+      setUser({
+        email: supabaseUser.email || '',
+        name: supabaseUser.user_metadata?.name || supabaseUser.email?.split('@')[0] || ''
+      })
+    } else {
+      setUser(null)
+    }
+  }, [supabaseUser])
 
   // Initialize from localStorage on client
   useEffect(() => {
@@ -118,15 +133,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const signIn = (userData: User) => {
-    setUser(userData)
+    // This is now handled by the AuthContext
+    // The user state will be updated via the useEffect that watches supabaseUser
   }
 
   const signUp = (userData: User) => {
-    setUser(userData)
+    // This is now handled by the AuthContext
+    // The user state will be updated via the useEffect that watches supabaseUser
   }
 
   const signOut = () => {
-    setUser(null)
+    // This is now handled by the AuthContext
+    // The user state will be updated via the useEffect that watches supabaseUser
     setUserVotes({})
   }
 

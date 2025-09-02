@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Eye, EyeOff, ArrowLeft, Check } from "lucide-react";
+import { useAuth } from "../lib/contexts/AuthContext";
 
 interface SignUpProps {
   onSignUp: (user: { email: string; name: string }) => void;
@@ -24,6 +25,7 @@ export function SignUp({ onSignUp, onBack, onSwitchToSignIn }: SignUpProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(false);
+  const { signUp } = useAuth();
 
   const updateField = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -74,16 +76,33 @@ export function SignUp({ onSignUp, onBack, onSwitchToSignIn }: SignUpProps) {
     }
 
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    setErrors({});
     
-    // Mock successful sign up
-    onSignUp({
-      email: formData.email.trim(),
-      name: formData.name.trim()
-    });
-    
-    setIsLoading(false);
+    try {
+      const { error, data } = await signUp(
+        formData.email.trim(), 
+        formData.password,
+        formData.name.trim()
+      );
+      
+      if (error) {
+        setErrors({ form: error.message });
+      } else if (data?.user) {
+        // Successfully signed up, Supabase session is handled by AuthContext
+        // The AppContext will update based on the Supabase user
+        onSignUp({
+          email: formData.email.trim(),
+          name: formData.name.trim()
+        });
+      } else {
+        // Email confirmation might be required
+        setErrors({ form: 'Please check your email to confirm your account' });
+      }
+    } catch (err: any) {
+      setErrors({ form: err.message || 'An error occurred during sign up' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getPasswordStrength = () => {
@@ -250,6 +269,13 @@ export function SignUp({ onSignUp, onBack, onSwitchToSignIn }: SignUpProps) {
                 <p className="text-sm text-destructive mt-1">{errors.confirmPassword}</p>
               )}
             </div>
+
+            {/* Form Error */}
+            {errors.form && (
+              <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+                {errors.form}
+              </div>
+            )}
 
             {/* Submit Button */}
             <Button type="submit" className="w-full" disabled={isLoading}>
