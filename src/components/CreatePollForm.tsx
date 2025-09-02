@@ -6,17 +6,27 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Trash2, Plus } from "lucide-react";
-import { Poll, PollOption } from "../lib/mockData";
+import { createPollAction } from "../lib/actions/poll-actions";
+import { useRouter } from "next/navigation";
+import { Checkbox } from "./ui/checkbox";
+import { Textarea } from "./ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
 
 interface CreatePollFormProps {
-  onCreatePoll: (poll: Poll) => void;
   onCancel: () => void;
 }
 
-export function CreatePollForm({ onCreatePoll, onCancel }: CreatePollFormProps) {
-  const [question, setQuestion] = useState("");
+export function CreatePollForm({ onCancel }: CreatePollFormProps) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [options, setOptions] = useState(["", ""]);
+  const [isPublic, setIsPublic] = useState(true);
+  const [allowAnonymousVotes, setAllowAnonymousVotes] = useState(true);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const router = useRouter();
+  const { toast } = useToast();
 
   const addOption = () => {
     if (options.length < 6) {
@@ -40,11 +50,11 @@ export function CreatePollForm({ onCreatePoll, onCancel }: CreatePollFormProps) 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
-    // Validate question
-    if (!question.trim()) {
-      newErrors.question = "Question is required";
-    } else if (question.length < 10) {
-      newErrors.question = "Question must be at least 10 characters";
+    // Validate title
+    if (!title.trim()) {
+      newErrors.title = "Poll title is required";
+    } else if (title.length < 5) {
+      newErrors.title = "Poll title must be at least 5 characters";
     }
 
     // Validate options
@@ -55,7 +65,7 @@ export function CreatePollForm({ onCreatePoll, onCancel }: CreatePollFormProps) 
 
     // Check for duplicate options
     const duplicates = options.filter((opt, index) => 
-      opt.trim() && options.indexOf(opt) !== index
+      opt.trim() && options.findIndex(o => o.trim() === opt.trim()) !== index
     );
     if (duplicates.length > 0) {
       newErrors.options = "Options must be unique";
@@ -72,31 +82,49 @@ export function CreatePollForm({ onCreatePoll, onCancel }: CreatePollFormProps) 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
       return;
     }
 
-    const validOptions = options.filter(opt => opt.trim());
-    const pollOptions: PollOption[] = validOptions.map((text, index) => ({
-      id: `${Date.now()}_${index}`,
-      text: text.trim(),
-      votes: 0
-    }));
-
-    const newPoll: Poll = {
-      id: Date.now().toString(),
-      question: question.trim(),
-      options: pollOptions,
-      totalVotes: 0,
-      createdAt: new Date(),
-      createdBy: '', // Will be set by the parent component
-      isActive: true
-    };
-
-    onCreatePoll(newPoll);
+    setIsSubmitting(true);
+    
+    try {
+      // Create FormData object
+      const formData = new FormData();
+      formData.append('title', title.trim());
+      formData.append('description', description.trim());
+      formData.append('isPublic', isPublic.toString());
+      formData.append('allowAnonymousVotes', allowAnonymousVotes.toString());
+      
+      // Add options
+      const validOptions = options.filter(opt => opt.trim());
+      validOptions.forEach((option, index) => {
+        formData.append(`option-${index}`, option.trim());
+      });
+      
+      // Call the server action
+      const result = await createPollAction(formData);
+      
+      if (result.success && result.pollId) {
+        toast({
+          title: "Poll created successfully",
+          description: "Your poll has been created and is now available.",
+        });
+        
+        // Redirect to the poll page
+        router.push(`/poll/${result.pollId}`);
+      } else {
+        setErrors({ form: result.error || 'Failed to create poll' });
+      }
+    } catch (error) {
+      console.error('Error creating poll:', error);
+      setErrors({ form: 'An unexpected error occurred' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -107,20 +135,39 @@ export function CreatePollForm({ onCreatePoll, onCancel }: CreatePollFormProps) 
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Question Input */}
+            {/* Form Error Message */}
+            {errors.form && (
+              <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md">
+                {errors.form}
+              </div>
+            )}
+            
+            {/* Title Input */}
             <div>
-              <Label htmlFor="question">Poll Question</Label>
+              <Label htmlFor="title">Poll Title</Label>
               <Input
-                id="question"
+                id="title"
                 type="text"
                 placeholder="What would you like to ask?"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                className={errors.question ? "border-destructive" : ""}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={errors.title ? "border-destructive" : ""}
               />
-              {errors.question && (
-                <p className="text-sm text-destructive mt-1">{errors.question}</p>
+              {errors.title && (
+                <p className="text-sm text-destructive mt-1">{errors.title}</p>
               )}
+            </div>
+            
+            {/* Description Input */}
+            <div>
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Textarea
+                id="description"
+                placeholder="Add more details about your poll"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="resize-none"
+              />
             </div>
 
             {/* Options */}
@@ -168,12 +215,37 @@ export function CreatePollForm({ onCreatePoll, onCancel }: CreatePollFormProps) 
               )}
             </div>
 
+            {/* Poll Settings */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="isPublic" 
+                  checked={isPublic} 
+                  onCheckedChange={(checked) => setIsPublic(checked as boolean)}
+                />
+                <Label htmlFor="isPublic">Make this poll public</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="allowAnonymousVotes" 
+                  checked={allowAnonymousVotes} 
+                  onCheckedChange={(checked) => setAllowAnonymousVotes(checked as boolean)}
+                />
+                <Label htmlFor="allowAnonymousVotes">Allow anonymous votes</Label>
+              </div>
+            </div>
+            
             {/* Form Actions */}
             <div className="flex gap-3 pt-4">
-              <Button type="submit" className="flex-1">
-                Create Poll
+              <Button 
+                type="submit" 
+                className="flex-1" 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Creating..." : "Create Poll"}
               </Button>
-              <Button type="button" variant="outline" onClick={onCancel}>
+              <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
                 Cancel
               </Button>
             </div>

@@ -6,6 +6,7 @@ import { AppProvider, useApp } from '../lib/contexts/AppContext'
 import { AuthProvider } from '../lib/contexts/AuthContext'
 import { usePathname, useRouter } from 'next/navigation'
 import React from 'react'
+import { Toaster } from '../components/ui/toaster'
 
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <AppProvider>
             <AppLayoutContent>{children}</AppLayoutContent>
+            <Toaster />
           </AppProvider>
         </AuthProvider>
       </body>

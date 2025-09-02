@@ -29,7 +29,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const { user: supabaseUser } = useAuth()
+  const { user: supabaseUser, signOut: authSignOut } = useAuth()
   const [polls, setPolls] = useState<Poll[]>(mockPolls)
   const [user, setUser] = useState<User | null>(null)
   const [userVotes, setUserVotes] = useState<{ [pollId: string]: string }>({})
@@ -142,10 +142,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // The user state will be updated via the useEffect that watches supabaseUser
   }
 
-  const signOut = () => {
-    // This is now handled by the AuthContext
-    // The user state will be updated via the useEffect that watches supabaseUser
-    setUserVotes({})
+  const signOut = async () => {
+    try {
+      await authSignOut()
+      setUserVotes({})
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
   }
 
   const value = {
