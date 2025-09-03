@@ -11,16 +11,9 @@ export async function createPoll(
   options: string[],
   isPublic: boolean = true,
   allowAnonymousVotes: boolean = true,
-  endDate: Date | null = null
+  endDate: Date | null = null,
+  userId: string
 ): Promise<Poll | null> {
-  const session = await getServerSession();
-  
-  if (!session || !session.user) {
-    throw new Error('User must be authenticated to create a poll');
-  }
-  
-  const user = session.user;
-  
   // Use server-side Supabase client
   const supabaseServer = await createServerSupabaseClient();
   
@@ -30,7 +23,7 @@ export async function createPoll(
     .insert({
       title,
       description,
-      created_by: user.id,
+      created_by: userId,
       is_public: isPublic,
       allow_anonymous_votes: allowAnonymousVotes,
       end_date: endDate?.toISOString() || null,

@@ -2,8 +2,6 @@
 
 import { useRouter } from 'next/navigation'
 import { SignIn } from '../../components/SignIn'
-import { useApp } from '../../lib/contexts/AppContext'
-import { AppLayout } from '../app-layout'
 
 interface User {
   email: string
@@ -11,11 +9,9 @@ interface User {
 }
 
 export default function SignInPage() {
-  const { signIn } = useApp()
   const router = useRouter()
 
-  const handleSignIn = (userData: User) => {
-    signIn(userData)
+  const handleSignIn = () => {
     router.push('/')
   }
 
@@ -28,14 +24,12 @@ export default function SignInPage() {
   }
 
   return (
-    <AppLayout>
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <SignIn
           onSignIn={handleSignIn}
           onBack={handleBack}
           onSwitchToSignUp={handleSwitchToSignUp}
         />
       </div>
-    </AppLayout>
   )
 }

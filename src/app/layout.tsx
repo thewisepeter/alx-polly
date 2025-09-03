@@ -7,7 +7,7 @@ import { AuthProvider } from '../lib/contexts/AuthContext'
 import { usePathname, useRouter } from 'next/navigation'
 import React from 'react'
 import { Toaster } from '../components/ui/toaster'
-
+import { Header } from '../components/Header' // Import Header
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -37,6 +37,12 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <Header
+        currentView={getCurrentView() as any}
+        onNavigate={handleNavigate as any}
+        user={user}
+        onSignOut={signOut}
+      />
       <main>{children}</main>
 
       {pathname === '/' && (

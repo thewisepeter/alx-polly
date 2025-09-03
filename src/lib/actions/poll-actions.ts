@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import QRCode from 'qrcode';
+import { getServerUser } from '../supabase-server';
 
 import {
   createPoll,
@@ -31,6 +32,12 @@ export async function createPollAction(
     const isPublic = formData.get('isPublic') === 'true';
     const allowAnonymousVotes = formData.get('allowAnonymousVotes') === 'true';
     
+    const user = await getServerUser();
+
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
     // Get options from form data
     const options: string[] = [];
     for (const [key, value] of formData.entries()) {
@@ -55,7 +62,8 @@ export async function createPollAction(
       options,
       isPublic,
       allowAnonymousVotes,
-      null // No end date for now
+      null, // No end date for now
+      user.id // Pass the authenticated user's ID
     );
     
     if (!poll) {

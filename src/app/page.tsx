@@ -5,7 +5,6 @@ import { FeaturedPolls } from '../components/FeaturedPolls'
 import { Button } from '../components/ui/button'
 import { useApp } from '../lib/contexts/AppContext'
 import { useRouter } from 'next/navigation'
-import { AppLayout } from './app-layout'
 
 export default function HomePage() {
   const { user, polls } = useApp()
@@ -29,7 +28,7 @@ export default function HomePage() {
   }
 
   return (
-    <AppLayout>
+    <>
       <HeroSection
         onCreatePoll={handleCreatePoll}
         onViewPolls={handleViewPolls}
@@ -62,6 +61,6 @@ export default function HomePage() {
           </div>
         </section>
       )}
-    </AppLayout>
+    </>
   )
 }

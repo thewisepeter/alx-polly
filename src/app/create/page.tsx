@@ -4,11 +4,10 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { CreatePollForm } from '../../components/CreatePollForm'
 import { useApp } from '../../lib/contexts/AppContext'
-import { AppLayout } from '../app-layout'
 import { Poll } from '../../lib/mockData'
 
 export default function CreatePage() {
-  const { user, addPoll } = useApp()
+  const { user } = useApp()
   const router = useRouter()
 
   useEffect(() => {
@@ -17,8 +16,8 @@ export default function CreatePage() {
     }
   }, [user, router])
 
-  const handleCreatePoll = (poll: Poll) => {
-    addPoll(poll)
+  // handleCreatePoll is no longer needed here as form submission is handled by CreatePollForm directly
+  const handleCreatePoll = () => {
     router.push('/')
   }
 
@@ -31,13 +30,10 @@ export default function CreatePage() {
   }
 
   return (
-    <AppLayout>
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <CreatePollForm
-          onCreatePoll={handleCreatePoll}
           onCancel={handleCancel}
         />
       </div>
-    </AppLayout>
   )
 }

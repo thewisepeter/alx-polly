@@ -21,8 +21,6 @@ interface AppContextType {
   updatePoll: (pollId: string, updates: Partial<Poll>) => void
   deletePoll: (pollId: string) => void
   vote: (pollId: string, optionId: string) => void
-  signIn: (userData: User) => void
-  signUp: (userData: User) => void
   signOut: () => void
 }
 
@@ -132,20 +130,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  const signIn = (userData: User) => {
-    // This is now handled by the AuthContext
-    // The user state will be updated via the useEffect that watches supabaseUser
-  }
-
-  const signUp = (userData: User) => {
-    // This is now handled by the AuthContext
-    // The user state will be updated via the useEffect that watches supabaseUser
-  }
-
   const signOut = async () => {
     try {
       await authSignOut()
+      setUser(null) // Explicitly set user to null
+      localStorage.removeItem('polling-user') // Clear user from localStorage
       setUserVotes({})
+      localStorage.removeItem('polling-votes') // Clear votes from localStorage
     } catch (error) {
       console.error('Error signing out:', error)
     }
@@ -162,8 +153,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updatePoll,
     deletePoll,
     vote,
-    signIn,
-    signUp,
     signOut
   }
 

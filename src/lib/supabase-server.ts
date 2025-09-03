@@ -4,14 +4,16 @@ import { cookies } from 'next/headers';
 // Server-side Supabase client for use in Server Actions and Server Components
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+  // console.log('createServerSupabaseClient - allCookies:', allCookies);
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
         },
         set(name: string, value: string, options: any) {
           try {
@@ -47,6 +49,8 @@ export async function getServerUser() {
       return null;
     }
     
+    // console.log('getServerUser - user:', user ? user.id : 'No user');
+    // console.log('getServerUser - session:', user ? (await supabase.auth.getSession()).data.session : 'No session');
     return user;
   } catch (error) {
     console.error('Error in getServerUser:', error);

@@ -1,7 +1,6 @@
 'use client'
 
 import { NotFound } from '../components/NotFound'
-import { AppLayout } from './app-layout'
 import { useRouter } from 'next/navigation'
 
 export default function NotFoundPage() {
@@ -12,8 +11,8 @@ export default function NotFoundPage() {
   }
 
   return (
-    <AppLayout>
+    <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-theme(spacing.16))] text-center">
       <NotFound onGoHome={handleGoHome} />
-    </AppLayout>
+    </div>
   )
 }
