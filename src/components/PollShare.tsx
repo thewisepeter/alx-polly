@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
@@ -17,6 +17,7 @@ import {
   Check
 } from "lucide-react";
 import { Poll } from "../lib/mockData";
+import { useToast } from "./ui/use-toast";
 
 interface PollShareProps {
   poll: Poll;
@@ -26,7 +27,8 @@ interface PollShareProps {
 export function PollShare({ poll, onClose }: PollShareProps) {
   const [copied, setCopied] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [shareUrl, setShareUrl] = useState<string>("");
+  const { toast } = useToast();
 
   // Generate poll URL
   const pollUrl = `${window.location.origin}/poll/${poll.id}`;
@@ -35,83 +37,35 @@ export function PollShare({ poll, onClose }: PollShareProps) {
   const shareText = `Check out this poll: "${poll.question}" - Vote now!`;
 
   useEffect(() => {
+    const generateQRCode = async () => {
+      try {
+        const response = await fetch(`/api/polls/${poll.id}/qrcode?baseUrl=${window.location.origin}`);
+        if (response.ok) {
+          const data = await response.json();
+          setQrCodeDataUrl(data.qrCode);
+          setShareUrl(data.shareUrl);
+        } else {
+          toast({
+            title: "Error generating QR code",
+            description: "Could not generate a QR code for this poll.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Error generating QR code",
+          description: "An unexpected error occurred.",
+          variant: "destructive",
+        });
+      }
+    };
+
     generateQRCode();
-  }, [pollUrl]);
-
-  const generateQRCode = async () => {
-    if (!canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Simple QR code generation using a basic pattern
-    // In a real app, you'd use a proper QR code library like 'qr-code-styling'
-    const size = 200;
-    canvas.width = size;
-    canvas.height = size;
-    
-    // Clear canvas
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, size, size);
-    
-    // Create a simple pattern (this is a mock QR code)
-    ctx.fillStyle = '#000000';
-    const blockSize = size / 25;
-    
-    // Generate a simple pattern based on poll ID
-    const pattern = generateQRPattern(poll.id);
-    
-    for (let i = 0; i < 25; i++) {
-      for (let j = 0; j < 25; j++) {
-        if (pattern[i][j]) {
-          ctx.fillRect(j * blockSize, i * blockSize, blockSize, blockSize);
-        }
-      }
-    }
-    
-    // Convert to data URL
-    setQrCodeDataUrl(canvas.toDataURL());
-  };
-
-  const generateQRPattern = (id: string): boolean[][] => {
-    // Simple deterministic pattern generation based on poll ID
-    const pattern: boolean[][] = Array(25).fill(null).map(() => Array(25).fill(false));
-    
-    // Add finder patterns (corners)
-    addFinderPattern(pattern, 0, 0);
-    addFinderPattern(pattern, 0, 18);
-    addFinderPattern(pattern, 18, 0);
-    
-    // Add data pattern based on ID
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-      hash = ((hash << 5) - hash + id.charCodeAt(i)) & 0xffffffff;
-    }
-    
-    for (let i = 8; i < 17; i++) {
-      for (let j = 8; j < 17; j++) {
-        pattern[i][j] = (hash & (1 << ((i - 8) * 9 + (j - 8)))) !== 0;
-      }
-    }
-    
-    return pattern;
-  };
-
-  const addFinderPattern = (pattern: boolean[][], startX: number, startY: number) => {
-    for (let i = 0; i < 7; i++) {
-      for (let j = 0; j < 7; j++) {
-        if (i === 0 || i === 6 || j === 0 || j === 6 || 
-           (i >= 2 && i <= 4 && j >= 2 && j <= 4)) {
-          pattern[startX + i][startY + j] = true;
-        }
-      }
-    }
-  };
+  }, [poll.id, toast]);
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(pollUrl);
+      await navigator.clipboard.writeText(shareUrl || pollUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -121,24 +75,24 @@ export function PollShare({ poll, onClose }: PollShareProps) {
 
   const shareOnSocial = (platform: string) => {
     const encodedText = encodeURIComponent(shareText);
-    const encodedUrl = encodeURIComponent(pollUrl);
+    const encodedUrl = encodeURIComponent(shareUrl || pollUrl);
     
-    let shareUrl = '';
+    let shareUrlString = '';
     
     switch (platform) {
       case 'twitter':
-        shareUrl = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
+        shareUrlString = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
         break;
       case 'facebook':
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`;
+        shareUrlString = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`;
         break;
       case 'linkedin':
-        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&title=${encodeURIComponent(poll.question)}`;
+        shareUrlString = `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&title=${encodeURIComponent(poll.question)}`;
         break;
     }
     
-    if (shareUrl) {
-      window.open(shareUrl, '_blank', 'width=600,height=400,scrollbars=yes,resizable=yes');
+    if (shareUrlString) {
+      window.open(shareUrlString, '_blank', 'width=600,height=400,scrollbars=yes,resizable=yes');
     }
   };
 

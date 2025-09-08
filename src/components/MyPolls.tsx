@@ -23,6 +23,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Poll } from "../lib/mockData";
 import { PollShare } from "./PollShare";
+import { useToast } from "./ui/use-toast";
 
 interface MyPollsProps {
   polls: Poll[];
@@ -31,7 +32,6 @@ interface MyPollsProps {
   onCreatePoll: () => void;
   onBack: () => void;
   onEditPoll?: (poll: Poll) => void;
-  onDeletePoll?: (pollId: string) => void;
   onTogglePollStatus?: (pollId: string) => void;
 }
 
@@ -39,19 +39,49 @@ type SortOption = 'newest' | 'oldest' | 'mostVotes' | 'leastVotes';
 type FilterOption = 'all' | 'active' | 'inactive';
 
 export function MyPolls({ 
-  polls, 
+  polls: initialPolls, 
   userEmail, 
   onViewPoll, 
   onCreatePoll, 
   onBack,
   onEditPoll,
-  onDeletePoll,
   onTogglePollStatus
 }: MyPollsProps) {
+  const [polls, setPolls] = useState(initialPolls);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [selectedPollForShare, setSelectedPollForShare] = useState<Poll | null>(null);
+  const { toast } = useToast();
+
+  const onDeletePoll = async (pollId: string) => {
+    try {
+      const response = await fetch(`/api/polls/${pollId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setPolls(polls.filter((poll) => poll.id !== pollId));
+        toast({
+          title: "Poll deleted",
+          description: "The poll has been successfully deleted.",
+        });
+      } else {
+        const data = await response.json();
+        toast({
+          title: "Error deleting poll",
+          description: data.error || "An unexpected error occurred.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error deleting poll",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Filter user's polls
   const userPolls = polls.filter(poll => poll.createdBy === userEmail);

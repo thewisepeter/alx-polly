@@ -1,5 +1,6 @@
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { Database } from '@/lib/types/database.types';
 
 // Server-side Supabase client for use in Server Actions and Server Components
 export async function createServerSupabaseClient() {
@@ -7,16 +8,17 @@ export async function createServerSupabaseClient() {
   const allCookies = cookieStore.getAll();
   // console.log('createServerSupabaseClient - allCookies:', allCookies);
 
-  return createServerClient(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll();
+        get(name: string) {
+          return cookieStore.get(name)?.value;
         },
-        set(name: string, value: string, options: any) {
+        set(name: string, value: string, options: CookieOptions) {
           try {
+            console.log(`Setting cookie: ${name} = ${value}`);
             cookieStore.set({ name, value, ...options });
           } catch (error) {
             // The `set` method was called from a Server Component.
@@ -24,7 +26,7 @@ export async function createServerSupabaseClient() {
             // user sessions.
           }
         },
-        remove(name: string, options: any) {
+        remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options });
           } catch (error) {

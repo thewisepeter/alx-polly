@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Progress } from "./ui/progress";
@@ -9,34 +9,87 @@ import { Label } from "./ui/label";
 import { ArrowLeft, Users, Share2 } from "lucide-react";
 import { Poll, PollOption } from "../lib/mockData";
 import { PollShare } from "./PollShare";
+import { useToast } from "./ui/use-toast";
 
 interface PollVotingViewProps {
-  poll: Poll;
-  onVote: (pollId: string, optionId: string) => void;
+  initialPoll: Poll;
   onBack: () => void;
-  hasVoted?: boolean;
-  userVote?: string;
+  initialHasVoted?: boolean;
+  initialUserVote?: string;
 }
 
 export function PollVotingView({ 
-  poll, 
-  onVote, 
+  initialPoll, 
   onBack, 
-  hasVoted = false, 
-  userVote 
+  initialHasVoted = false, 
+  initialUserVote 
 }: PollVotingViewProps) {
+  const [poll, setPoll] = useState(initialPoll);
   const [selectedOption, setSelectedOption] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [hasVoted, setHasVoted] = useState(initialHasVoted);
+  const [userVote, setUserVote] = useState(initialUserVote);
+  const { toast } = useToast();
+
+  const fetchPollResults = async () => {
+    try {
+      const response = await fetch(`/api/polls/${poll.id}/results`);
+      if (response.ok) {
+        const data = await response.json();
+        const newOptions = poll.options.map(option => {
+          const result = data.results.find((r: any) => r.option_id === option.id);
+          return { ...option, votes: result ? result.vote_count : 0 };
+        });
+        const totalVotes = newOptions.reduce((acc, opt) => acc + opt.votes, 0);
+        setPoll({ ...poll, options: newOptions, totalVotes });
+      }
+    } catch (error) {
+      console.error("Failed to fetch poll results", error);
+    }
+  };
+
+  useEffect(() => {
+    if (hasVoted) {
+      fetchPollResults();
+    }
+  }, [hasVoted]);
 
   const handleVote = async () => {
     if (!selectedOption || hasVoted) return;
 
     setIsSubmitting(true);
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    onVote(poll.id, selectedOption);
-    setIsSubmitting(false);
+    try {
+      const response = await fetch(`/api/polls/${poll.id}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ optionId: selectedOption }),
+      });
+
+      if (response.ok) {
+        setHasVoted(true);
+        setUserVote(selectedOption);
+        toast({
+          title: "Vote submitted",
+          description: "Your vote has been successfully recorded.",
+        });
+      } else {
+        const data = await response.json();
+        toast({
+          title: "Error submitting vote",
+          description: data.error || "An unexpected error occurred.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error submitting vote",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getPercentage = (option: PollOption) => {

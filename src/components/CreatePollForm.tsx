@@ -6,7 +6,6 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Trash2, Plus } from "lucide-react";
-import { createPollAction } from "../lib/actions/poll-actions";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "./ui/checkbox";
 import { Textarea } from "./ui/textarea";
@@ -105,10 +104,14 @@ export function CreatePollForm({ onCancel }: CreatePollFormProps) {
         formData.append(`option-${index}`, option.trim());
       });
       
-      // Call the server action
-      const result = await createPollAction(formData);
+      const response = await fetch('/api/polls', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
       
-      if (result.success && result.pollId) {
+      if (response.ok && result.success && result.pollId) {
         toast({
           title: "Poll created successfully",
           description: "Your poll has been created and is now available.",

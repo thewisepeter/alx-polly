@@ -8,7 +8,7 @@ import { AppLayout } from '../app-layout'
 import { Poll } from '../../lib/mockData'
 
 export default function MyPollsPage() {
-  const { user, polls, deletePoll, updatePoll } = useApp()
+  const { user, polls, updatePoll } = useApp()
   const router = useRouter()
 
   useEffect(() => {
@@ -27,10 +27,6 @@ export default function MyPollsPage() {
 
   const handleBack = () => {
     router.push('/')
-  }
-
-  const handleDeletePoll = (pollId: string) => {
-    deletePoll(pollId)
   }
 
   const handleTogglePollStatus = (pollId: string) => {
@@ -52,7 +48,6 @@ export default function MyPollsPage() {
         onViewPoll={handleViewPoll}
         onCreatePoll={handleCreatePoll}
         onBack={handleBack}
-        onDeletePoll={handleDeletePoll}
         onTogglePollStatus={handleTogglePollStatus}
       />
     </AppLayout>

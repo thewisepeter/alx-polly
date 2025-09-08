@@ -19,7 +19,6 @@ interface AppContextType {
   setUserVotes: (votes: { [pollId: string]: string }) => void
   addPoll: (poll: Poll) => void
   updatePoll: (pollId: string, updates: Partial<Poll>) => void
-  deletePoll: (pollId: string) => void
   vote: (pollId: string, optionId: string) => void
   signOut: () => void
 }
@@ -96,15 +95,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  const deletePoll = (pollId: string) => {
-    setPolls(prev => prev.filter(poll => poll.id !== pollId))
-    setUserVotes(prev => {
-      const newVotes = { ...prev }
-      delete newVotes[pollId]
-      return newVotes
-    })
-  }
-
   const vote = (pollId: string, optionId: string) => {
     // Update user votes tracking
     setUserVotes(prev => ({ ...prev, [pollId]: optionId }))
@@ -151,7 +141,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUserVotes,
     addPoll,
     updatePoll,
-    deletePoll,
     vote,
     signOut
   }

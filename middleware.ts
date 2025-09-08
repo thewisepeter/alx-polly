@@ -30,8 +30,10 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  console.log('Middleware - Incoming Request Cookies:', request.cookies.getAll());
+  console.log('Middleware - Request Cookies (Incoming):', request.cookies.getAll());
   console.log('Middleware - user:', user ? user.id : 'No user');
+  console.log('Middleware - Response Cookies (after auth.getUser):', response.cookies.getAll());
+  console.log('Middleware - Response Headers (after auth.getUser):', response.headers.getSetCookie());
 
   // Protect routes that require authentication
   if (!user && (request.nextUrl.pathname.startsWith('/create') || request.nextUrl.pathname.startsWith('/my-polls'))) {
@@ -48,8 +50,14 @@ export async function middleware(request: NextRequest) {
   //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
   // 3. Change the myNewResponse object to fit your needs, but avoid changing
   //    the cookies!
+
+  // This is the crucial part to ensure the session is refreshed and propagated.
+  // The `supabase` client's `cookies` object (configured with `setAll`) handles
+  // setting the cookies on the `response` object directly when `supabase.auth.getUser()`
+  // or other auth methods are called.
+  // So, we just need to return the `response` object that was modified by the Supabase client.
   // 4. Finally:
-  //    return myNewResponse
+  return response;
   // If this is not done, you may be causing the browser and server to go out
   // of sync and terminate the user's session prematurely!
 

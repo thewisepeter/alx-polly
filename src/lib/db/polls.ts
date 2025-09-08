@@ -1,6 +1,7 @@
-import { supabase } from '../supabase';
+import { SupabaseClient, PostgrestError } from '@supabase/supabase-js';
 import { createServerSupabaseClient, getServerUser, getServerSession } from '../supabase-server';
-import { NewPoll, NewPollOption, NewVote, Poll, PollOption, PollResult, PollShare, Vote } from '../types/database.types';
+import { Database, NewPoll, NewPollOption, NewVote, Poll, PollOption, PollResult, PollShare, Vote } from '../types/database.types';
+import { SupabaseClient, PostgrestError } from '@supabase/supabase-js';
 
 /**
  * Create a new poll with options
@@ -11,23 +12,33 @@ export async function createPoll(
   options: string[],
   isPublic: boolean = true,
   allowAnonymousVotes: boolean = true,
-  endDate: Date | null = null,
-  userId: string
+  endDate: Date | null = null
 ): Promise<Poll | null> {
   // Use server-side Supabase client
-  const supabaseServer = await createServerSupabaseClient();
+  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+
+  const session = await getServerSession();
+
+  console.log('createPoll - session:', session ? 'Session exists' : 'No session');
+  console.log('createPoll - session.user:', session && session.user ? session.user.id : 'No session user');
+
+  if (!session || !session.user) {
+    throw new Error('User must be authenticated to create a poll');
+  }
+  const user = session.user;
   
   // Start a transaction
+  const newPollData: NewPoll = {
+    title,
+    description,
+    created_by: user.id,
+    is_public: isPublic,
+    allow_anonymous_votes: allowAnonymousVotes,
+    end_date: endDate ? endDate.toISOString() : null,
+  };
   const { data: poll, error: pollError } = await supabaseServer
     .from('polls')
-    .insert({
-      title,
-      description,
-      created_by: userId,
-      is_public: isPublic,
-      allow_anonymous_votes: allowAnonymousVotes,
-      end_date: endDate?.toISOString() || null,
-    })
+    .insert<NewPoll>(newPollData)
     .select()
     .single();
   
@@ -41,14 +52,13 @@ export async function createPoll(
   }
   
   // Insert options
-  const pollOptions = options.map(option => ({
-    poll_id: poll.id,
-    option_text: option,
-  }));
-  
+  const pollOptionsData = options.map(option => ({
+     poll_id: poll.id,
+     option_text: option,
+   })) satisfies NewPollOption[];
   const { error: optionsError } = await supabaseServer
     .from('poll_options')
-    .insert(pollOptions);
+    .insert(pollOptionsData);
   
   if (optionsError) {
     console.error('Error creating poll options:', optionsError);
@@ -64,8 +74,9 @@ export async function createPoll(
  * Get a poll by ID with its options
  */
 export async function getPollById(pollId: string): Promise<{ poll: Poll; options: PollOption[] } | null> {
+  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
   // Get the poll
-  const { data: poll, error: pollError } = await supabase
+  const { data: poll, error: pollError } = await supabaseServer
     .from('polls')
     .select('*')
     .eq('id', pollId)
@@ -80,7 +91,7 @@ export async function getPollById(pollId: string): Promise<{ poll: Poll; options
   }
   
   // Get the options
-  const { data: options, error: optionsError } = await supabase
+  const { data: options, error: optionsError } = await supabaseServer
     .from('poll_options')
     .select('*')
     .eq('poll_id', pollId)
@@ -98,13 +109,14 @@ export async function getPollById(pollId: string): Promise<{ poll: Poll; options
  * Get polls created by the current user
  */
 export async function getMyPolls(): Promise<Poll[]> {
-  const user = (await supabase.auth.getUser()).data.user;
+  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  const user = (await supabaseServer.auth.getUser()).data.user;
   
   if (!user) {
     throw new Error('User must be authenticated to get their polls');
   }
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseServer
     .from('polls')
     .select('*')
     .eq('created_by', user.id)
@@ -122,7 +134,8 @@ export async function getMyPolls(): Promise<Poll[]> {
  * Get public polls
  */
 export async function getPublicPolls(limit: number = 10): Promise<Poll[]> {
-  const { data, error } = await supabase
+  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  const { data, error } = await supabaseServer
     .from('polls')
     .select('*')
     .eq('is_public', true)
@@ -145,11 +158,12 @@ export async function voteOnPoll(
   optionId: string,
   anonymousUserId?: string
 ): Promise<void> {
-  const user = (await supabase.auth.getUser()).data.user;
+  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  const user = (await supabaseServer.auth.getUser()).data.user;
   
   // Check if the poll allows anonymous votes if no user is authenticated
   if (!user && !anonymousUserId) {
-    const { data: poll, error: pollError } = await supabase
+    const { data: poll, error: pollError } = await supabaseServer
       .from('polls')
       .select('allow_anonymous_votes')
       .eq('id', pollId)
@@ -171,7 +185,7 @@ export async function voteOnPoll(
   
   // Check if user has already voted
   if (user) {
-    const { data: existingVote, error: voteCheckError } = await supabase
+    const { data: existingVote, error: voteCheckError } = await supabaseServer
       .from('votes')
       .select('id')
       .eq('poll_id', pollId)
@@ -187,7 +201,7 @@ export async function voteOnPoll(
       throw new Error('You have already voted on this poll');
     }
   } else if (anonymousUserId) {
-    const { data: existingVote, error: voteCheckError } = await supabase
+    const { data: existingVote, error: voteCheckError } = await supabaseServer
       .from('votes')
       .select('id')
       .eq('poll_id', pollId)
@@ -205,14 +219,15 @@ export async function voteOnPoll(
   }
   
   // Create the vote
-  const { error } = await supabase
+  const newVoteData = { 
+    poll_id: pollId,
+    option_id: optionId,
+    user_id: user?.id || null,
+    anonymous_user_id: !user ? anonymousUserId : null,
+  } satisfies NewVote;
+  const { error } = await supabaseServer
     .from('votes')
-    .insert({
-      poll_id: pollId,
-      option_id: optionId,
-      user_id: user?.id || null,
-      anonymous_user_id: !user ? anonymousUserId : null,
-    });
+    .insert<NewVote>(newVoteData);
   
   if (error) {
     console.error('Error voting on poll:', error);
@@ -224,8 +239,9 @@ export async function voteOnPoll(
  * Get poll results
  */
 export async function getPollResults(pollId: string): Promise<PollResult[]> {
-  const { data, error } = await supabase
-    .rpc('get_poll_results', { poll_id: pollId });
+  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  const { data, error } = await supabaseServer
+    .rpc('get_poll_results', { poll_id: pollId }) as { data: PollResult[] | null, error: PostgrestError | null };
   
   if (error) {
     console.error('Error getting poll results:', error);
@@ -239,14 +255,15 @@ export async function getPollResults(pollId: string): Promise<PollResult[]> {
  * Check if the current user has voted on a poll
  */
 export async function hasUserVoted(pollId: string): Promise<boolean> {
-  const user = (await supabase.auth.getUser()).data.user;
+  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  const user = (await supabaseServer.auth.getUser()).data.user;
   
   if (!user) {
     return false;
   }
   
-  const { data, error } = await supabase
-    .rpc('has_user_voted', { poll_id: pollId, user_id: user.id });
+  const { data, error } = await supabaseServer
+    .rpc('has_user_voted', { poll_id: pollId, user_id: user.id }) as { data: boolean | null, error: PostgrestError | null };
   
   if (error) {
     console.error('Error checking if user voted:', error);
@@ -260,18 +277,20 @@ export async function hasUserVoted(pollId: string): Promise<boolean> {
  * Create a share link for a poll
  */
 export async function createPollShare(pollId: string): Promise<PollShare> {
-  const user = (await supabase.auth.getUser()).data.user;
+  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  const user = (await supabaseServer.auth.getUser()).data.user;
   
   // Generate a random share code
   const shareCode = Math.random().toString(36).substring(2, 10);
   
-  const { data, error } = await supabase
+  const newPollShareData: NewPollShare = { 
+    poll_id: pollId,
+    created_by: user?.id || null,
+    share_code: shareCode,
+  };
+  const { data, error } = await supabaseServer
     .from('poll_shares')
-    .insert({
-      poll_id: pollId,
-      created_by: user?.id || null,
-      share_code: shareCode,
-    })
+    .insert<NewPollShare>(newPollShareData)
     .select()
     .single();
   
@@ -291,8 +310,9 @@ export async function createPollShare(pollId: string): Promise<PollShare> {
  * Get a poll by share code
  */
 export async function getPollByShareCode(shareCode: string): Promise<{ poll: Poll; options: PollOption[] } | null> {
+  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
   // Get the share
-  const { data: share, error: shareError } = await supabase
+  const { data: share, error: shareError } = await supabaseServer
     .from('poll_shares')
     .select('poll_id')
     .eq('share_code', shareCode)
@@ -314,7 +334,8 @@ export async function getPollByShareCode(shareCode: string): Promise<{ poll: Pol
  * Delete a poll
  */
 export async function deletePoll(pollId: string): Promise<void> {
-  const { error } = await supabase
+  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  const { error } = await supabaseServer
     .from('polls')
     .delete()
     .eq('id', pollId);
@@ -338,16 +359,18 @@ export async function updatePoll(
     endDate?: Date | null;
   }
 ): Promise<Poll> {
-  const { data, error } = await supabase
+  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  const updateData: UpdatePoll = { 
+    title: updates.title,
+    description: updates.description,
+    is_public: updates.isPublic,
+    allow_anonymous_votes: updates.allowAnonymousVotes,
+    end_date: updates.endDate?.toISOString() || null,
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await supabaseServer
     .from('polls')
-    .update({
-      title: updates.title,
-      description: updates.description,
-      is_public: updates.isPublic,
-      allow_anonymous_votes: updates.allowAnonymousVotes,
-      end_date: updates.endDate?.toISOString() || null,
-      updated_at: new Date().toISOString(),
-    })
+    .update<UpdatePoll>(updateData)
     .eq('id', pollId)
     .select()
     .single();

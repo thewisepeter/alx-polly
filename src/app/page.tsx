@@ -35,7 +35,7 @@ export default function HomePage() {
         isAuthenticated={!!user}
       />
       <div id="featured-polls">
-        <FeaturedPolls onViewPoll={handleViewPoll} polls={polls} />
+        <FeaturedPolls onViewPoll={handleViewPoll} />
       </div>
       
       {/* Quick access section for authenticated users */}
