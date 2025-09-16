@@ -1,7 +1,19 @@
 import { SupabaseClient, PostgrestError } from '@supabase/supabase-js';
-import { createServerSupabaseClient, getServerUser, getServerSession } from '../supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { Database, NewPoll, NewPollOption, NewVote, Poll, PollOption, PollResult, PollShare, Vote } from '../types/database.types';
-import { SupabaseClient, PostgrestError } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
+import { 
+  mockPolls, 
+  mockPollOptions, 
+  mockVotes, 
+  mockPollShares, 
+  getMockPollResults, 
+  mockUser1Id,
+  mockUser2Id,
+  mockAnonymousUserId1
+} from '@/lib/mockData';
+
+const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true';
 
 /**
  * Create a new poll with options
@@ -14,15 +26,40 @@ export async function createPoll(
   allowAnonymousVotes: boolean = true,
   endDate: Date | null = null
 ): Promise<Poll | null> {
-  // Use server-side Supabase client
-  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  if (USE_MOCK_DATA) {
+    const newPoll: Poll = {
+      id: 'mock-poll-' + Math.random().toString(36).substring(7),
+      title,
+      description,
+      created_by: mockUser1Id, 
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_public: isPublic,
+      allow_anonymous_votes: allowAnonymousVotes,
+      end_date: endDate ? endDate.toISOString() : null,
+    };
+    mockPolls.push(newPoll);
 
-  const session = await getServerSession();
+    options.forEach(optionText => {
+      mockPollOptions.push({
+        id: 'mock-option-' + Math.random().toString(36).substring(7),
+        poll_id: newPoll.id,
+        option_text: optionText,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    });
+    return newPoll;
+  }
+
+  const cookieStore = cookies();
+  const supabaseServer = await createServerSupabaseClient(cookieStore);
+  const { data: { session }, error: sessionError } = await supabaseServer.auth.getSession();
 
   console.log('createPoll - session:', session ? 'Session exists' : 'No session');
   console.log('createPoll - session.user:', session && session.user ? session.user.id : 'No session user');
 
-  if (!session || !session.user) {
+  if (sessionError || !session || !session.user) {
     throw new Error('User must be authenticated to create a poll');
   }
   const user = session.user;
@@ -36,6 +73,7 @@ export async function createPoll(
     allow_anonymous_votes: allowAnonymousVotes,
     end_date: endDate ? endDate.toISOString() : null,
   };
+
   const { data: poll, error: pollError } = await supabaseServer
     .from('polls')
     .insert<NewPoll>(newPollData)
@@ -74,7 +112,15 @@ export async function createPoll(
  * Get a poll by ID with its options
  */
 export async function getPollById(pollId: string): Promise<{ poll: Poll; options: PollOption[] } | null> {
-  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  if (USE_MOCK_DATA) {
+    const poll = mockPolls.find(p => p.id === pollId);
+    if (!poll) return null;
+    const options = mockPollOptions.filter(o => o.poll_id === pollId);
+    return { poll, options };
+  }
+
+  const cookieStore = cookies();
+  const supabaseServer = await createServerSupabaseClient(cookieStore);
   // Get the poll
   const { data: poll, error: pollError } = await supabaseServer
     .from('polls')
@@ -109,10 +155,16 @@ export async function getPollById(pollId: string): Promise<{ poll: Poll; options
  * Get polls created by the current user
  */
 export async function getMyPolls(): Promise<Poll[]> {
-  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
-  const user = (await supabaseServer.auth.getUser()).data.user;
+  if (USE_MOCK_DATA) {
+    // For mock data, we'll assume mockUser1Id is the current user
+    return mockPolls.filter(poll => poll.created_by === mockUser1Id);
+  }
+
+  const cookieStore = cookies();
+  const supabaseServer = await createServerSupabaseClient(cookieStore);
+  const { data: { user }, error: userError } = await supabaseServer.auth.getUser();
   
-  if (!user) {
+  if (userError || !user) {
     throw new Error('User must be authenticated to get their polls');
   }
   
@@ -134,7 +186,12 @@ export async function getMyPolls(): Promise<Poll[]> {
  * Get public polls
  */
 export async function getPublicPolls(limit: number = 10): Promise<Poll[]> {
-  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  if (USE_MOCK_DATA) {
+    return mockPolls.filter(poll => poll.is_public).slice(0, limit);
+  }
+
+  const cookieStore = cookies();
+  const supabaseServer = await createServerSupabaseClient(cookieStore);
   const { data, error } = await supabaseServer
     .from('polls')
     .select('*')
@@ -158,11 +215,43 @@ export async function voteOnPoll(
   optionId: string,
   anonymousUserId?: string
 ): Promise<void> {
-  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
-  const user = (await supabaseServer.auth.getUser()).data.user;
+  if (USE_MOCK_DATA) {
+    const poll = mockPolls.find(p => p.id === pollId);
+    const option = mockPollOptions.find(o => o.id === optionId);
+
+    if (!poll || !option) {
+      throw new Error('Poll or option not found');
+    }
+
+    const existingVote = mockVotes.find(v => 
+      v.poll_id === pollId && (
+        (v.user_id && v.user_id === mockUser1Id) || // Assuming mockUser1Id is current authenticated user for mock voting
+        (v.anonymous_user_id && v.anonymous_user_id === anonymousUserId)
+      )
+    );
+
+    if (existingVote) {
+      throw new Error('You have already voted on this poll');
+    }
+
+    mockVotes.push({
+      id: 'mock-vote-' + Math.random().toString(36).substring(7), // Generate a unique ID for mock data
+      poll_id: pollId,
+      option_id: optionId,
+      user_id: anonymousUserId ? null : mockUser1Id, // Simulate user1 voting or anonymous
+      anonymous_user_id: anonymousUserId || null,
+      created_at: new Date().toISOString(),
+      ip_address: '127.0.0.1', // Mock IP
+    });
+    return;
+  }
+
+  const cookieStore = cookies();
+  const supabaseServer = await createServerSupabaseClient(cookieStore);
+  const { data: { user }, error: userError } = await supabaseServer.auth.getUser();
   
   // Check if the poll allows anonymous votes if no user is authenticated
-  if (!user && !anonymousUserId) {
+  if (userError || !user && !anonymousUserId) {
     const { data: poll, error: pollError } = await supabaseServer
       .from('polls')
       .select('allow_anonymous_votes')
@@ -238,10 +327,23 @@ export async function voteOnPoll(
 /**
  * Get poll results
  */
-export async function getPollResults(pollId: string): Promise<PollResult[]> {
-  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+export async function getPollResults(
+  pollId: string,
+  filterUserId: string | null = null,
+  filterAnonymousUserId: string | null = null
+): Promise<PollResult[]> {
+  if (USE_MOCK_DATA) {
+    return getMockPollResults(pollId, filterUserId, filterAnonymousUserId);
+  }
+
+  const cookieStore = cookies();
+  const supabaseServer = await createServerSupabaseClient(cookieStore);
   const { data, error } = await supabaseServer
-    .rpc('get_poll_results', { poll_id: pollId }) as { data: PollResult[] | null, error: PostgrestError | null };
+    .rpc('get_poll_results', { 
+      poll_id: pollId, 
+      filter_user_id: filterUserId, 
+      filter_anonymous_user_id: filterAnonymousUserId
+    }) as { data: PollResult[] | null, error: PostgrestError | null };
   
   if (error) {
     console.error('Error getting poll results:', error);
@@ -255,10 +357,16 @@ export async function getPollResults(pollId: string): Promise<PollResult[]> {
  * Check if the current user has voted on a poll
  */
 export async function hasUserVoted(pollId: string): Promise<boolean> {
-  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
-  const user = (await supabaseServer.auth.getUser()).data.user;
+  if (USE_MOCK_DATA) {
+    // For mock data, assume user1 has voted on poll1
+    return mockVotes.some(v => v.poll_id === pollId && v.user_id === mockUser1Id);
+  }
+
+  const cookieStore = cookies();
+  const supabaseServer = await createServerSupabaseClient(cookieStore);
+  const { data: { user }, error: userError } = await supabaseServer.auth.getUser();
   
-  if (!user) {
+  if (userError || !user) {
     return false;
   }
   
@@ -276,17 +384,41 @@ export async function hasUserVoted(pollId: string): Promise<boolean> {
 /**
  * Create a share link for a poll
  */
-export async function createPollShare(pollId: string): Promise<PollShare> {
-  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
-  const user = (await supabaseServer.auth.getUser()).data.user;
+export async function createPollShare(
+  pollId: string,
+  password: string | null = null,
+  expiresAt: Date | null = null
+): Promise<PollShare> {
+  if (USE_MOCK_DATA) {
+    const newShare: PollShare = {
+      id: 'mock-share-' + Math.random().toString(36).substring(7),
+      poll_id: pollId,
+      created_by: mockUser1Id, // Assume user1 creates share links
+      share_code: 'mock-share-' + Math.random().toString(36).substring(7),
+      created_at: new Date().toISOString(),
+      expires_at: expiresAt?.toISOString() || null,
+      password: password, // Store plain password for mock testing
+    };
+    mockPollShares.push(newShare);
+    return newShare;
+  }
+
+  const cookieStore = cookies();
+  const supabaseServer = await createServerSupabaseClient(cookieStore);
+  const { data: { user }, error: userError } = await supabaseServer.auth.getUser();
   
   // Generate a random share code
   const shareCode = Math.random().toString(36).substring(2, 10);
   
+  // TODO: Hash password before storing
+  const hashedPassword = password; // Placeholder for now
+
   const newPollShareData: NewPollShare = { 
     poll_id: pollId,
     created_by: user?.id || null,
     share_code: shareCode,
+    password: hashedPassword,
+    expires_at: expiresAt?.toISOString() || null,
   };
   const { data, error } = await supabaseServer
     .from('poll_shares')
@@ -309,12 +441,22 @@ export async function createPollShare(pollId: string): Promise<PollShare> {
 /**
  * Get a poll by share code
  */
-export async function getPollByShareCode(shareCode: string): Promise<{ poll: Poll; options: PollOption[] } | null> {
-  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+export async function getPollByShareCode(shareCode: string): Promise<{ pollShare: PollShare; poll: Poll; options: PollOption[] } | null> {
+  if (USE_MOCK_DATA) {
+    const share = mockPollShares.find(s => s.share_code === shareCode);
+    if (!share) return null;
+    const poll = mockPolls.find(p => p.id === share.poll_id);
+    if (!poll) return null;
+    const options = mockPollOptions.filter(o => o.poll_id === poll.id);
+    return { pollShare: share, poll, options };
+  }
+
+  const cookieStore = cookies();
+  const supabaseServer = await createServerSupabaseClient(cookieStore);
   // Get the share
   const { data: share, error: shareError } = await supabaseServer
     .from('poll_shares')
-    .select('poll_id')
+    .select('*, poll_id(*)') // Select all from poll_shares and join with polls table
     .eq('share_code', shareCode)
     .single();
   
@@ -325,16 +467,37 @@ export async function getPollByShareCode(shareCode: string): Promise<{ poll: Pol
     console.error('Error fetching poll share:', shareError);
     throw shareError;
   }
+
+  if (!share || !share.poll_id) {
+    throw new Error('Invalid share code or associated poll not found');
+  }
+
+  const pollData = await getPollById(share.poll_id.id); // Access the nested poll_id object
+
+  if (!pollData) {
+    return null;
+  }
   
-  // Get the poll with options
-  return await getPollById(share.poll_id);
+  return { pollShare: share, poll: pollData.poll, options: pollData.options };
 }
 
 /**
  * Delete a poll
  */
 export async function deletePoll(pollId: string): Promise<void> {
-  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  if (USE_MOCK_DATA) {
+    const index = mockPolls.findIndex(p => p.id === pollId);
+    if (index !== -1) {
+      mockPolls.splice(index, 1);
+      mockPollOptions.filter(o => o.poll_id !== pollId);
+      mockVotes.filter(v => v.poll_id !== pollId);
+      mockPollShares.filter(s => s.poll_id !== pollId);
+    }
+    return;
+  }
+
+  const cookieStore = cookies();
+  const supabaseServer = await createServerSupabaseClient(cookieStore);
   const { error } = await supabaseServer
     .from('polls')
     .delete()
@@ -359,7 +522,21 @@ export async function updatePoll(
     endDate?: Date | null;
   }
 ): Promise<Poll> {
-  const supabaseServer: SupabaseClient<Database> = await createServerSupabaseClient();
+  if (USE_MOCK_DATA) {
+    const poll = mockPolls.find(p => p.id === pollId);
+    if (!poll) throw new Error('Poll not found');
+
+    if (updates.title) poll.title = updates.title;
+    if (updates.description !== undefined) poll.description = updates.description;
+    if (updates.isPublic !== undefined) poll.is_public = updates.isPublic;
+    if (updates.allowAnonymousVotes !== undefined) poll.allow_anonymous_votes = updates.allowAnonymousVotes;
+    if (updates.endDate !== undefined) poll.end_date = updates.endDate?.toISOString() || null;
+    poll.updated_at = new Date().toISOString();
+    return poll;
+  }
+
+  const cookieStore = cookies();
+  const supabaseServer = await createServerSupabaseClient(cookieStore);
   const updateData: UpdatePoll = { 
     title: updates.title,
     description: updates.description,

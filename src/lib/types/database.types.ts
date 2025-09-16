@@ -104,6 +104,7 @@ export interface Database {
           share_code: string
           created_at: string
           expires_at: string | null
+          password: string | null
         }
         Insert: {
           id?: string
@@ -112,6 +113,7 @@ export interface Database {
           share_code: string
           created_at?: string
           expires_at?: string | null
+          password?: string | null
         }
         Update: {
           id?: string
@@ -120,6 +122,7 @@ export interface Database {
           share_code?: string
           created_at?: string
           expires_at?: string | null
+          password?: string | null
         }
       }
     }

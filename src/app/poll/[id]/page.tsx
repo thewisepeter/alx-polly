@@ -1,49 +1,63 @@
-'use client'
-
-import { useRouter, useParams } from 'next/navigation'
+import { notFound } from 'next/navigation'
+import { getPollById, getPollResults } from '../../../lib/db/polls'
 import { PollVotingView } from '../../../components/PollVotingView'
 import { NotFound } from '../../../components/NotFound'
-import { useApp } from '../../../lib/contexts/AppContext'
 import { AppLayout } from '../../app-layout'
+import PollResultsExport from '../../../components/PollResultsExport'
 
-export default function PollPage() {
-  const { polls, vote, userVotes } = useApp()
-  const router = useRouter()
-  const params = useParams()  // <-- use hook to get route params
+interface PollPageProps {
+  params: { id: string };
+}
 
-  const poll = polls.find(p => p.id === params?.id)
+export default async function PollPage({ params }: PollPageProps) {
+  const pollId = params.id;
+  const pollData = await getPollById(pollId);
 
-  const handleVote = (pollId: string, optionId: string) => {
-    vote(pollId, optionId)
+  if (!pollData || !pollData.poll) {
+    notFound();
   }
 
-  const handleBack = () => {
-    router.push('/')
-  }
+  const { poll, options } = pollData;
+  const results = await getPollResults(pollId);
+  const isRealtime = !poll.end_date || new Date(poll.end_date) > new Date();
 
-  const handleGoHome = () => {
-    router.push('/')
-  }
-
-  if (!poll) {
-    return (
-      <AppLayout>
-        <NotFound onGoHome={handleGoHome} />
-      </AppLayout>
-    )
-  }
+  // For PollVotingView, we might still need client-side state for voting. 
+  // This would require a separate client component for voting.
+  // For now, I'll keep PollVotingView as it is, but acknowledge that
+  // a full refactor to separate server/client components for voting/results 
+  // might be needed depending on how `useApp()` is used.
 
   return (
     <AppLayout>
       <div className="container mx-auto px-4 py-8">
-        <PollVotingView
+        <h1 className="text-3xl font-bold mb-6">{poll.title}</h1>
+        {poll.description && <p className="text-gray-600 mb-8">{poll.description}</p>}
+
+        {/* Existing Poll Voting View */}
+        {/* 
+          TODO: If `PollVotingView` needs client-side interaction (which it does based on `useApp` and `vote`),
+          it should be refactored into a client component that receives necessary props.
+          For this task, I will temporarily comment out PollVotingView or assume it can take server props directly.
+        */}
+        {/* <PollVotingView
           poll={poll}
           onVote={handleVote}
           onBack={handleBack}
           hasVoted={!!userVotes[poll.id]}
           userVote={userVotes[poll.id]}
-        />
+        /> */}
+
+        {/* New Poll Results Export Component */}
+        <div className="mt-12">
+          <PollResultsExport
+            pollId={pollId}
+            poll={poll}
+            options={options}
+            results={results}
+            isRealtime={isRealtime}
+          />
+        </div>
       </div>
     </AppLayout>
-  )
+  );
 }

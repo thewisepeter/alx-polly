@@ -2,7 +2,8 @@
 import { NextResponse } from 'next/server';
 import { createPoll } from '@/lib/db/polls';
 import { getPublicPolls, getPollById } from '@/lib/db/polls';
-import { getServerSession } from '@/lib/supabase-server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 
 export async function POST(request: Request) {
   try {
@@ -12,9 +13,13 @@ export async function POST(request: Request) {
     const isPublic = formData.get('isPublic') === 'true';
     const allowAnonymousVotes = formData.get('allowAnonymousVotes') === 'true';
 
-    const sessionResult = await getServerSession();
+    const cookieStore = cookies();
+    // Directly create Supabase client in the route handler
+    const supabase = await createServerSupabaseClient(cookieStore);
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-    if (sessionResult.error || !sessionResult.data?.session) {
+    if (sessionError || !session) {
+      console.error('API Route POST /api/polls - Auth session missing:', sessionError?.message || 'No session data');
       return NextResponse.json({ error: 'Auth session missing.' }, { status: 401 });
     }
 
@@ -58,19 +63,65 @@ export async function GET() {
   try {
     const polls = await getPublicPolls(6);
 
-    const pollsWithOptionCount = await Promise.all(
+    const pollsWithFullDetails = await Promise.all(
       polls.map(async (poll) => {
-        const pollData = await getPollById(poll.id);
+        const cookieStore = cookies();
+        const supabase = await createServerSupabaseClient(cookieStore);
+        const { data: optionsData, error: optionsError } = await supabase
+          .from('poll_options')
+          .select('*')
+          .eq('poll_id', poll.id);
+
+        if (optionsError) {
+          console.error('Error fetching options for poll:', optionsError);
+          return { ...poll, options: [], totalVotes: 0 };
+        }
+
+        const options = optionsData || [];
+
+        const { data: votesData, error: votesError } = await supabase
+          .from('votes')
+          .select('id', { count: 'exact' })
+          .eq('poll_id', poll.id);
+
+        if (votesError) {
+          console.error('Error fetching vote count for poll:', votesError);
+          return { ...poll, options, totalVotes: 0 };
+        }
+
+        const totalVotes = votesData?.count || 0;
+
+        const optionsWithVotes = await Promise.all(
+          options.map(async (option) => {
+            const { count: optionVoteCount, error: optionVoteCountError } = await supabase
+              .from('votes')
+              .select('id', { count: 'exact' })
+              .eq('option_id', option.id);
+
+            if (optionVoteCountError) {
+              console.error('Error fetching vote count for option:', optionVoteCountError);
+              return { ...option, votes: 0 };
+            }
+            return { ...option, votes: optionVoteCount || 0 };
+          })
+        );
+
         return {
           id: poll.id,
           title: poll.title,
           description: poll.description,
-          optionCount: pollData?.options.length || 0,
+          created_at: poll.created_at,
+          created_by: poll.created_by,
+          is_public: poll.is_public,
+          allow_anonymous_votes: poll.allow_anonymous_votes,
+          end_date: poll.end_date,
+          options: optionsWithVotes, // Pass options with vote counts
+          totalVotes: totalVotes,
         };
       })
     );
 
-    return NextResponse.json({ success: true, polls: pollsWithOptionCount });
+    return NextResponse.json({ success: true, polls: pollsWithFullDetails });
   } catch (error) {
     console.error('Error getting featured polls:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';

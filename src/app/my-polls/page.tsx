@@ -4,7 +4,6 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { MyPolls } from '../../components/MyPolls'
 import { useApp } from '../../lib/contexts/AppContext'
-import { AppLayout } from '../app-layout'
 import { Poll } from '../../lib/mockData'
 
 export default function MyPollsPage() {
@@ -41,7 +40,7 @@ export default function MyPollsPage() {
   }
 
   return (
-    <AppLayout>
+    <div className="container mx-auto px-4 py-8">
       <MyPolls
         polls={polls}
         userEmail={user.email}
@@ -50,6 +49,6 @@ export default function MyPollsPage() {
         onBack={handleBack}
         onTogglePollStatus={handleTogglePollStatus}
       />
-    </AppLayout>
+    </div>
   )
 }

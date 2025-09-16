@@ -2,14 +2,20 @@
 
 import { useState, useEffect } from "react";
 import { PollCard } from "./PollCard";
-import { Poll } from "../lib/mockData";
+import { Poll, PollOption } from "../lib/types/database.types"; // Import Poll from database.types
 
 interface FeaturedPollsProps {
-  onViewPoll: (poll: Poll) => void;
+  onViewPoll: (poll: Poll & { options: (PollOption & { votes: number })[]; totalVotes: number }) => void;
+}
+
+// Extend Poll type for FeaturedPolls to include options with votes and totalVotes
+interface FeaturedPoll extends Poll {
+  options: (PollOption & { votes: number })[];
+  totalVotes: number;
 }
 
 export function FeaturedPolls({ onViewPoll }: FeaturedPollsProps) {
-  const [polls, setPolls] = useState<Poll[]>([]);
+  const [polls, setPolls] = useState<FeaturedPoll[]>([]);
 
   useEffect(() => {
     const fetchFeaturedPolls = async () => {
@@ -33,14 +39,17 @@ export function FeaturedPolls({ onViewPoll }: FeaturedPollsProps) {
         <h2 className="text-3xl font-medium mb-8">Featured Polls</h2>
         
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {polls.map((poll: any) => (
+          {polls.map((poll) => (
             <PollCard
               key={poll.id}
               id={poll.id}
-              question={poll.title}
+              title={poll.title}
+              question={poll.title} // PollCard expects 'question', but API returns 'title'
               options={poll.options}
               totalVotes={poll.totalVotes}
-              createdAt={poll.createdAt}
+              createdAt={poll.created_at} // Use created_at from database type
+              createdBy={poll.created_by}
+              isActive={!poll.end_date || new Date(poll.end_date) > new Date()} // Derive isActive
               onViewPoll={() => onViewPoll(poll)}
             />
           ))}

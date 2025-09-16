@@ -16,11 +16,6 @@ export default function CreatePage() {
     }
   }, [user, router])
 
-  // handleCreatePoll is no longer needed here as form submission is handled by CreatePollForm directly
-  // const handleCreatePoll = () => {
-  //   router.push('/')
-  // }
-
   const handleCancel = () => {
     router.push('/')
   }

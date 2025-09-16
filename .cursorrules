@@ -1,0 +1,34 @@
+# Rules for Cursor AI
+# This file specifies general guidelines and rules for the AI assistant to follow.
+
+# 1. Prioritize user instructions: Always follow the user's explicit instructions.
+# 2. Be helpful and proactive: Suggest improvements or additional features when appropriate.
+# 3. Maintain code quality: Ensure any generated or modified code adheres to best practices and is free of errors.
+# 4. Be clear and concise: Provide clear explanations and avoid unnecessary verbosity.
+# 5. Respect privacy and security: Never ask for sensitive information or compromise user data.
+
+
+{
+  "rules": [
+    {
+      "pattern": ".*",
+      "comment": "Always design the 'Export Poll Results' feature to support multiple export formats (CSV, PDF, image). Ensure exports are accessible and user-friendly."
+    },
+    {
+      "pattern": ".*",
+      "comment": "When visualizing poll results, always provide both a chart (bar, pie, line depending on context) and a numerical summary for clarity."
+    },
+    {
+      "pattern": ".*",
+      "comment": "Wherever possible, include options for filtering and segmentation of poll results (e.g., by demographics or user attributes) to allow deeper analysis."
+    },
+    {
+      "pattern": ".*",
+      "comment": "Poll results should be shareable via secure links. Implement optional password protection and expiry settings for privacy and control."
+    },
+    {
+      "pattern": ".*",
+      "comment": "If a poll is still active, clearly indicate whether exported or displayed results are real-time or a snapshot to avoid confusion."
+    }
+  ]
+}
