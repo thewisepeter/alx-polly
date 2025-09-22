@@ -10,12 +10,14 @@ import { useRouter } from "next/navigation";
 import { Checkbox } from "./ui/checkbox";
 import { Textarea } from "./ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/lib/contexts/AuthContext";
 
 interface CreatePollFormProps {
   onCancel: () => void;
 }
 
-export function CreatePollForm({ onCancel }: CreatePollFormProps) {
+export function CreatePollForm({ onCancel, }: CreatePollFormProps) {
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [options, setOptions] = useState(["", ""]);
@@ -84,15 +86,22 @@ export function CreatePollForm({ onCancel }: CreatePollFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+     if (!user) {
+      setErrors({ form: "You must be signed in to create a poll" });
+      return;
+    }
+
     if (!validateForm()) {
       return;
     }
 
     setIsSubmitting(true);
     
-    try {
+    
       // Create FormData object
+      
       const formData = new FormData();
+      formData.append('userId', user.id);
       formData.append('title', title.trim());
       formData.append('description', description.trim());
       formData.append('isPublic', isPublic.toString());
@@ -104,21 +113,24 @@ export function CreatePollForm({ onCancel }: CreatePollFormProps) {
         formData.append(`option-${index}`, option.trim());
       });
       
+      try {
       const response = await fetch('/api/polls', {
         method: 'POST',
         body: formData,
+        credentials: 'include',
       });
 
       const result = await response.json();
+      console.log('API Response Result:', result); // Add this line for debugging
       
-      if (response.ok && result.success && result.pollId) {
+      if (response.ok && result.poll && result.poll.length > 0) {
         toast({
           title: "Poll created successfully",
           description: "Your poll has been created and is now available.",
         });
         
         // Redirect to the poll page
-        router.push(`/poll/${result.pollId}`);
+        router.push(`/poll/${result.poll[0].id}`);
       } else {
         setErrors({ form: result.error || 'Failed to create poll' });
       }

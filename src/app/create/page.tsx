@@ -3,11 +3,11 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { CreatePollForm } from '../../components/CreatePollForm'
-import { useApp } from '../../lib/contexts/AppContext'
+import { useAuth } from '../../lib/contexts/AuthContext'
 import { Poll } from '../../lib/mockData'
 
 export default function CreatePage() {
-  const { user } = useApp()
+  const { user } = useAuth()
   const router = useRouter()
 
   useEffect(() => {

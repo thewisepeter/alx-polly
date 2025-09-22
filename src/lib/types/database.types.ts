@@ -6,124 +6,161 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.4"
+  }
   public: {
     Tables: {
-      polls: {
-        Row: {
-          id: string
-          title: string
-          description: string | null
-          created_by: string
-          created_at: string
-          updated_at: string
-          is_public: boolean
-          allow_anonymous_votes: boolean
-          end_date: string | null
-        }
-        Insert: {
-          id?: string
-          title: string
-          description?: string | null
-          created_by: string
-          created_at?: string
-          updated_at?: string
-          is_public?: boolean
-          allow_anonymous_votes?: boolean
-          end_date?: string | null
-        }
-        Update: {
-          id?: string
-          title?: string
-          description?: string | null
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-          is_public?: boolean
-          allow_anonymous_votes?: boolean
-          end_date?: string | null
-        }
-      }
       poll_options: {
         Row: {
+          created_at: string | null
           id: string
-          poll_id: string
           option_text: string
-          created_at: string
-          updated_at: string
+          poll_id: string
+          updated_at: string | null
         }
         Insert: {
+          created_at?: string | null
           id?: string
-          poll_id: string
           option_text: string
-          created_at?: string
-          updated_at?: string
+          poll_id: string
+          updated_at?: string | null
         }
         Update: {
+          created_at?: string | null
           id?: string
-          poll_id?: string
           option_text?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      votes: {
-        Row: {
-          id: string
-          poll_id: string
-          option_id: string
-          user_id: string | null
-          anonymous_user_id: string | null
-          created_at: string
-          ip_address: string | null
-        }
-        Insert: {
-          id?: string
-          poll_id: string
-          option_id: string
-          user_id?: string | null
-          anonymous_user_id?: string | null
-          created_at?: string
-          ip_address?: string | null
-        }
-        Update: {
-          id?: string
           poll_id?: string
-          option_id?: string
-          user_id?: string | null
-          anonymous_user_id?: string | null
-          created_at?: string
-          ip_address?: string | null
+          updated_at?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "poll_options_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       poll_shares: {
         Row: {
+          created_at: string | null
+          created_by: string | null
+          expires_at: string | null
           id: string
           poll_id: string
-          created_by: string | null
           share_code: string
-          created_at: string
-          expires_at: string | null
-          password: string | null
         }
         Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
           id?: string
           poll_id: string
-          created_by?: string | null
           share_code: string
-          created_at?: string
-          expires_at?: string | null
-          password?: string | null
         }
         Update: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
           id?: string
           poll_id?: string
-          created_by?: string | null
           share_code?: string
-          created_at?: string
-          expires_at?: string | null
-          password?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "poll_shares_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polls: {
+        Row: {
+          allow_anonymous_votes: boolean | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          end_date: string | null
+          id: string
+          is_public: boolean | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          allow_anonymous_votes?: boolean | null
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_public?: boolean | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          allow_anonymous_votes?: boolean | null
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_public?: boolean | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      votes: {
+        Row: {
+          anonymous_user_id: string | null
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          option_id: string
+          poll_id: string
+          user_id: string | null
+        }
+        Insert: {
+          anonymous_user_id?: string | null
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          option_id: string
+          poll_id: string
+          user_id?: string | null
+        }
+        Update: {
+          anonymous_user_id?: string | null
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          option_id?: string
+          poll_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "votes_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "poll_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "votes_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -131,9 +168,7 @@ export interface Database {
     }
     Functions: {
       get_poll_results: {
-        Args: {
-          poll_id: string
-        }
+        Args: { poll_id: string }
         Returns: {
           option_id: string
           option_text: string
@@ -141,10 +176,7 @@ export interface Database {
         }[]
       }
       has_user_voted: {
-        Args: {
-          poll_id: string
-          user_id: string
-        }
+        Args: { poll_id: string; user_id: string }
         Returns: boolean
       }
     }
@@ -157,22 +189,125 @@ export interface Database {
   }
 }
 
-// Helper types for Supabase functions
-export type PollResult = Database['public']['Functions']['get_poll_results']['Returns'][0]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-// Convenience types for tables
-export type Poll = Database['public']['Tables']['polls']['Row']
-export type NewPoll = Database['public']['Tables']['polls']['Insert']
-export type UpdatePoll = Database['public']['Tables']['polls']['Update']
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
-export type PollOption = Database['public']['Tables']['poll_options']['Row']
-export type NewPollOption = Database['public']['Tables']['poll_options']['Insert']
-export type UpdatePollOption = Database['public']['Tables']['poll_options']['Update']
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
-export type Vote = Database['public']['Tables']['votes']['Row']
-export type NewVote = Database['public']['Tables']['votes']['Insert']
-export type UpdateVote = Database['public']['Tables']['votes']['Update']
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
-export type PollShare = Database['public']['Tables']['poll_shares']['Row']
-export type NewPollShare = Database['public']['Tables']['poll_shares']['Insert']
-export type UpdatePollShare = Database['public']['Tables']['poll_shares']['Update']
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

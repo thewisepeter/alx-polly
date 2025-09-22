@@ -1,61 +1,62 @@
-
 import { NextResponse } from 'next/server';
 import { createPoll } from '@/lib/db/polls';
-import { getPublicPolls, getPollById } from '@/lib/db/polls';
+import { getPublicPolls } from '@/lib/db/polls';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { Database } from '@/lib/types/database.types';
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
-    const title = formData.get('title') as string;
-    const description = formData.get('description') as string;
-    const isPublic = formData.get('isPublic') === 'true';
-    const allowAnonymousVotes = formData.get('allowAnonymousVotes') === 'true';
-
+    // Get cookies from the request
     const cookieStore = cookies();
-    // Directly create Supabase client in the route handler
+
+    // Create Supabase client with cookies
     const supabase = await createServerSupabaseClient(cookieStore);
+
+    // Get session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
+    console.log('Supabase session:', session);
+    console.log('Session error:', sessionError);
+
     if (sessionError || !session) {
-      console.error('API Route POST /api/polls - Auth session missing:', sessionError?.message || 'No session data');
-      return NextResponse.json({ error: 'Auth session missing.' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Auth session missing. Please login first.' },
+        { status: 401 }
+      );
     }
 
-    const options: string[] = [];
-    for (const [key, value] of formData.entries()) {
-      if (key.startsWith('option-') && value && typeof value === 'string' && value.trim() !== '') {
-        options.push(value.trim());
-      }
+    // Read form data
+    const formData = await request.formData();
+    const title = formData.get('title') as string;
+
+    if (!title) {
+      return NextResponse.json({ error: 'Poll title is required.' }, { status: 400 });
     }
 
-    if (!title || title.trim() === '') {
-      return NextResponse.json({ error: 'Title is required' }, { status: 400 });
+    // Insert poll into Supabase
+    const { data, error } = await supabase
+      .from('polls')
+      .insert({
+        title,
+        created_by: session.user.id,
+        is_public: true,
+        allow_anonymous_votes: false
+      })
+      .select();
+
+    if (error) {
+      console.error('Error inserting poll:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (options.length < 2) {
-      return NextResponse.json({ error: 'At least two options are required' }, { status: 400 });
-    }
-
-    const poll = await createPoll(
-      title.trim(),
-      description ? description.trim() : null,
-      options,
-      isPublic,
-      allowAnonymousVotes,
-      null
-    );
-
-    if (!poll) {
-      return NextResponse.json({ error: 'Failed to create poll' }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, pollId: poll.id }, { status: 201 });
+    return NextResponse.json({ poll: data });
   } catch (error) {
-    console.error('Error creating poll:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    console.error('Error in POST /api/polls:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -67,6 +68,7 @@ export async function GET() {
       polls.map(async (poll) => {
         const cookieStore = cookies();
         const supabase = await createServerSupabaseClient(cookieStore);
+
         const { data: optionsData, error: optionsError } = await supabase
           .from('poll_options')
           .select('*')
@@ -107,16 +109,9 @@ export async function GET() {
         );
 
         return {
-          id: poll.id,
-          title: poll.title,
-          description: poll.description,
-          created_at: poll.created_at,
-          created_by: poll.created_by,
-          is_public: poll.is_public,
-          allow_anonymous_votes: poll.allow_anonymous_votes,
-          end_date: poll.end_date,
-          options: optionsWithVotes, // Pass options with vote counts
-          totalVotes: totalVotes,
+          ...poll,
+          options: optionsWithVotes,
+          totalVotes,
         };
       })
     );
