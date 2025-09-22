@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation'
 import { getPollById, getPollResults } from '../../../lib/db/polls'
 import { PollVotingView } from '../../../components/PollVotingView'
 import { NotFound } from '../../../components/NotFound'
-import { AppLayout } from '../../app-layout'
 import PollResultsExport from '../../../components/PollResultsExport'
 
 interface PollPageProps {
@@ -10,7 +9,7 @@ interface PollPageProps {
 }
 
 export default async function PollPage({ params }: PollPageProps) {
-  const pollId = params.id;
+  const { id: pollId } = await params;
   const pollData = await getPollById(pollId);
 
   if (!pollData || !pollData.poll) {
@@ -28,36 +27,34 @@ export default async function PollPage({ params }: PollPageProps) {
   // might be needed depending on how `useApp()` is used.
 
   return (
-    <AppLayout>
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6">{poll.title}</h1>
-        {poll.description && <p className="text-gray-600 mb-8">{poll.description}</p>}
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6">{poll.title}</h1>
+      {poll.description && <p className="text-gray-600 mb-8">{poll.description}</p>}
 
-        {/* Existing Poll Voting View */}
-        {/* 
-          TODO: If `PollVotingView` needs client-side interaction (which it does based on `useApp` and `vote`),
-          it should be refactored into a client component that receives necessary props.
-          For this task, I will temporarily comment out PollVotingView or assume it can take server props directly.
-        */}
-        {/* <PollVotingView
+      {/* Existing Poll Voting View */}
+      {/* 
+        TODO: If `PollVotingView` needs client-side interaction (which it does based on `useApp` and `vote`),
+        it should be refactored into a client component that receives necessary props.
+        For this task, I will temporarily comment out PollVotingView or assume it can take server props directly.
+      */}
+      {/* <PollVotingView
+        poll={poll}
+        onVote={handleVote}
+        onBack={handleBack}
+        hasVoted={!!userVotes[poll.id]}
+        userVote={userVotes[poll.id]}
+      /> */}
+
+      {/* New Poll Results Export Component */}
+      <div className="mt-12">
+        <PollResultsExport
+          pollId={pollId}
           poll={poll}
-          onVote={handleVote}
-          onBack={handleBack}
-          hasVoted={!!userVotes[poll.id]}
-          userVote={userVotes[poll.id]}
-        /> */}
-
-        {/* New Poll Results Export Component */}
-        <div className="mt-12">
-          <PollResultsExport
-            pollId={pollId}
-            poll={poll}
-            options={options}
-            results={results}
-            isRealtime={isRealtime}
-          />
-        </div>
+          options={options}
+          results={results}
+          isRealtime={isRealtime}
+        />
       </div>
-    </AppLayout>
+    </div>
   );
 }

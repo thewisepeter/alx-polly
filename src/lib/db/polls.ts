@@ -13,7 +13,7 @@ import {
   mockAnonymousUserId1
 } from '@/lib/mockData';
 
-const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true';
+const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true'; 
 
 /**
  * Create a new poll with options
@@ -338,20 +338,21 @@ export async function getPollResults(
 
   const cookieStore = cookies();
   const supabaseServer = await createServerSupabaseClient(cookieStore);
-  const { data, error } = await supabaseServer
-    .rpc('get_poll_results', { 
-      poll_id: pollId, 
-      filter_user_id: filterUserId, 
-      filter_anonymous_user_id: filterAnonymousUserId
-    }) as { data: PollResult[] | null, error: PostgrestError | null };
-  
+
+  const { data, error } = await supabaseServer.rpc('get_poll_results', {
+    poll_id: pollId,
+    filter_user_id: filterUserId,
+    filter_anonymous_user_id: filterAnonymousUserId,
+  }) as { data: PollResult[] | null; error: PostgrestError | null };
+
   if (error) {
-    console.error('Error getting poll results:', error);
+    console.error('Error getting poll results:', JSON.stringify(error));
     throw error;
   }
-  
+
   return data || [];
 }
+
 
 /**
  * Check if the current user has voted on a poll

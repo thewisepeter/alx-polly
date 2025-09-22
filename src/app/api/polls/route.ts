@@ -13,13 +13,10 @@ export async function POST(request: Request) {
     // Create Supabase client with cookies
     const supabase = await createServerSupabaseClient(cookieStore);
 
-    // Get session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Get user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    console.log('Supabase session:', session);
-    console.log('Session error:', sessionError);
-
-    if (sessionError || !session) {
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'Auth session missing. Please login first.' },
         { status: 401 }
@@ -39,7 +36,7 @@ export async function POST(request: Request) {
       .from('polls')
       .insert({
         title,
-        created_by: session.user.id,
+        created_by: user.id,
         is_public: true,
         allow_anonymous_votes: false
       })

@@ -114,14 +114,27 @@ export function CreatePollForm({ onCancel, }: CreatePollFormProps) {
       });
       
       try {
+      console.log('handleSubmit function called');
       const response = await fetch('/api/polls', {
         method: 'POST',
         body: formData,
         credentials: 'include',
       });
 
-      const result = await response.json();
-      console.log('API Response Result:', result); // Add this line for debugging
+      console.log('API Response Status:', response.status, response.statusText);
+
+      let result;
+      try {
+        result = await response.json();
+        console.log('API Response Result:', result); // Add this line for debugging
+      } catch (jsonError) {
+        const text = await response.text();
+        console.error('JSON parsing error:', jsonError);
+        console.error('Raw API Response Text:', text);
+        setErrors({ form: 'Failed to parse API response' });
+        setIsSubmitting(false);
+        return;
+      }
       
       if (response.ok && result.poll && result.poll.length > 0) {
         toast({
